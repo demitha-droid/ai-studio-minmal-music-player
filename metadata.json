@@ -1,0 +1,6 @@
+{
+  "name": "Minimal Music Player",
+  "description": "A sleek, distraction-free monochrome music player with synced LRC lyrics, folder gallery, smart playlists, vinyl visualizer, sleep timer, and deep-thinking AI sonic curation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
