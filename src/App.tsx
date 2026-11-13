@@ -6,7 +6,6 @@ import {
   Folder,
   Moon,
   X,
-  LayoutGrid,
 } from 'lucide-react';
 import {
   AddedFolder,
@@ -18,7 +17,6 @@ import {
   ThemeMode,
 } from './types/music';
 import {
-  EXPLORER_EXTRA_TRACKS,
   PRESEEDED_FOLDERS,
   PRESEEDED_PLAYLISTS,
   PRESEEDED_TRACKS,
@@ -36,12 +34,11 @@ import { DiscoverScreen } from './screens/DiscoverScreen';
 import { SongsScreen } from './screens/SongsScreen';
 import { PlaylistsScreen } from './screens/PlaylistsScreen';
 import { PlaylistDetailScreen } from './screens/PlaylistDetailScreen';
-import { FoldersScreen } from './screens/FoldersScreen';
+import { FoldersScreen, LocalFileWithPath } from './screens/FoldersScreen';
 import { MiniPlayerBar } from './components/MiniPlayerBar';
 import { NowPlayingSheet } from './components/NowPlayingSheet';
 import { SleepTimerSheet } from './components/SleepTimerSheet';
 import { SettingsSheet } from './components/SettingsSheet';
-import { UiConceptsGalleryModal } from './components/UiConceptsGalleryModal';
 
 const STORAGE_KEYS = {
   SONGS: 'mmp_songs_v1',
@@ -121,11 +118,14 @@ export default function App() {
     playlistId: number | null;
   } | null>(null);
 
-  // Explorer Virtual File System State
-  const [explorerPath, setExplorerPath] = useState<string>('/storage/emulated/0/Music');
-  const [explorerExtraSongs, setExplorerExtraSongs] = useState<Song[]>(
-    EXPLORER_EXTRA_TRACKS
-  );
+  // Local Device Explorer State (empty by default — never fakes phone internal memory)
+  const [explorerPath, setExplorerPath] = useState<string>('');
+  const [explorerEntries, setExplorerEntries] = useState<
+    Array<{ song: Song; relativePath: string; sizeBytes: number }>
+  >([]);
+  const [openedExplorerRoots, setOpenedExplorerRoots] = useState<
+    Array<{ name: string; path: string }>
+  >([]);
 
   // Playback State
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
@@ -143,7 +143,6 @@ export default function App() {
   const [showNowPlayingSheet, setShowNowPlayingSheet] = useState(false);
   const [showSleepTimerSheet, setShowSleepTimerSheet] = useState(false);
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
-  const [showUiConceptsModal, setShowUiConceptsModal] = useState(true);
   const [selectedSongForPlaylist, setSelectedSongForPlaylist] = useState<Song | null>(
     null
   );
@@ -161,14 +160,41 @@ export default function App() {
   );
   const [isSleepTimerEndOfSong, setIsSleepTimerEndOfSong] = useState(false);
 
-  // Sync theme to document root
+  // Sync theme & mobile system bar color to document root
   useEffect(() => {
+    const themeColor =
+      themeMode === 'AMOLED'
+        ? '#000000'
+        : themeMode === 'LIGHT'
+          ? '#F5F5F7'
+          : '#0E0E10';
+
     document.documentElement.setAttribute('data-theme', themeMode);
+    document.documentElement.style.backgroundColor = themeColor;
+    document.documentElement.style.colorScheme =
+      themeMode === 'LIGHT' ? 'light' : 'dark';
+    document.body.style.backgroundColor = themeColor;
+
     if (themeMode === 'LIGHT') {
       document.documentElement.classList.remove('dark');
     } else {
       document.documentElement.classList.add('dark');
     }
+
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute('content', themeColor);
+    }
+    const appleStatusMeta = document.querySelector(
+      'meta[name="apple-mobile-web-app-status-bar-style"]'
+    );
+    if (appleStatusMeta) {
+      appleStatusMeta.setAttribute(
+        'content',
+        themeMode === 'LIGHT' ? 'default' : 'black-translucent'
+      );
+    }
+
     try {
       localStorage.setItem(STORAGE_KEYS.THEME, themeMode);
     } catch {}
@@ -768,7 +794,34 @@ export default function App() {
     [showToast]
   );
 
-  // Local HTML5 File / Folder Import
+  const readAudioDurationMs = useCallback((objectUrl: string): Promise<number> => {
+    return new Promise((resolve) => {
+      const audio = new Audio();
+      let settled = false;
+      const finish = (ms: number) => {
+        if (settled) return;
+        settled = true;
+        audio.src = '';
+        resolve(ms);
+      };
+      const timer = window.setTimeout(() => finish(180000), 1500);
+      audio.addEventListener('loadedmetadata', () => {
+        window.clearTimeout(timer);
+        const dur = Number.isFinite(audio.duration) && audio.duration > 0
+          ? Math.round(audio.duration * 1000)
+          : 180000;
+        finish(dur);
+      });
+      audio.addEventListener('error', () => {
+        window.clearTimeout(timer);
+        finish(180000);
+      });
+      audio.preload = 'metadata';
+      audio.src = objectUrl;
+    });
+  }, []);
+
+  // Local HTML5 File / Folder Import (from SongsScreen)
   const handleImportLocalFiles = useCallback(
     async (files: FileList, defaultFolderName = 'Imported Music') => {
       const audioFiles: File[] = [];
@@ -782,7 +835,7 @@ export default function App() {
           if (text.trim()) lrcMap.set(base, text);
         } else if (
           file.type.startsWith('audio/') ||
-          /\.(mp3|m4a|wav|flac|ogg|aac|opus)$/i.test(lower)
+          /\.(mp3|m4a|wav|flac|ogg|aac|opus|webm)$/i.test(lower)
         ) {
           audioFiles.push(file);
         }
@@ -807,32 +860,37 @@ export default function App() {
         return;
       }
 
-      const folderPath = `/storage/emulated/0/Music/${defaultFolderName}`;
-      const newSongs: Song[] = audioFiles.map((file, idx) => {
-        const baseName = file.name.replace(/\.[^/.]+$/, '');
-        const parts = baseName.split(' - ');
-        const artist = parts.length > 1 ? parts[0].trim() : 'Local Artist';
-        const title =
-          parts.length > 1 ? parts.slice(1).join(' - ').trim() : baseName;
-        const matchedLrc = lrcMap.get(baseName.toLowerCase()) || null;
+      const folderPath = `local://${defaultFolderName}`;
+      const baseTime = Date.now();
+      const newSongs: Song[] = await Promise.all(
+        audioFiles.map(async (file, idx) => {
+          const baseName = file.name.replace(/\.[^/.]+$/, '');
+          const parts = baseName.split(' - ');
+          const artist = parts.length > 1 ? parts[0].trim() : 'Local Artist';
+          const title =
+            parts.length > 1 ? parts.slice(1).join(' - ').trim() : baseName;
+          const matchedLrc = lrcMap.get(baseName.toLowerCase()) || null;
+          const mediaUri = URL.createObjectURL(file);
+          const durationMs = await readAudioDurationMs(mediaUri);
 
-        return {
-          id: Date.now() + idx,
-          title,
-          artist,
-          album: defaultFolderName,
-          durationMs: 180000,
-          mediaUri: URL.createObjectURL(file),
-          artworkUri: 'linear-gradient:135:#1E1E24:#3B3B48',
-          isFavorite: false,
-          playCount: 0,
-          popularityScore: 80,
-          dateAdded: Date.now(),
-          folderName: defaultFolderName,
-          folderPath,
-          lyrics: matchedLrc,
-        };
-      });
+          return {
+            id: baseTime + idx,
+            title,
+            artist,
+            album: defaultFolderName,
+            durationMs,
+            mediaUri,
+            artworkUri: 'linear-gradient:135:#1E1E24:#3B3B48',
+            isFavorite: false,
+            playCount: 0,
+            popularityScore: 80,
+            dateAdded: baseTime,
+            folderName: defaultFolderName,
+            folderPath,
+            lyrics: matchedLrc,
+          };
+        })
+      );
 
       setAllSongs((prev) => [...newSongs, ...prev]);
       setAddedFolders((prev) => {
@@ -849,11 +907,11 @@ export default function App() {
         return [
           ...prev,
           {
-            id: Date.now(),
+            id: baseTime,
             name: defaultFolderName,
             path: folderPath,
             songCount: newSongs.length,
-            dateAdded: Date.now(),
+            dateAdded: baseTime,
             artworkUri: 'linear-gradient:135:#1E1E24:#3B3B48',
             isArtworkConfirmed: false,
             candidateUrls: [
@@ -869,40 +927,131 @@ export default function App() {
         `Added ${newSongs.length} songs from '${defaultFolderName}' to library`
       );
     },
-    [playbackState.currentSong, showToast]
+    [playbackState.currentSong, readAudioDurationMs, showToast]
   );
 
-  // Explorer Virtual File System Items
-  const directoryItems = useMemo<FileExplorerItem[]>(() => {
-    const combinedSongs = [...allSongs, ...explorerExtraSongs];
-    const seenIds = new Set<number>();
-    const uniqueSongs = combinedSongs.filter((s) => {
-      if (seenIds.has(s.id)) return false;
-      seenIds.add(s.id);
-      return true;
-    });
+  // Open Real Local Folders / Audio Files inside Explorer (without fake internal storage)
+  const handleOpenExplorerFiles = useCallback(
+    async (entries: LocalFileWithPath[], rootLabel = 'Selected Files') => {
+      const audioEntries: LocalFileWithPath[] = [];
+      const lrcMap = new Map<string, string>();
 
-    const normCurrent = explorerPath.replace(/\/+$/, '');
+      for (const entry of entries) {
+        const lower = entry.file.name.toLowerCase();
+        if (lower.endsWith('.lrc') || lower.endsWith('.txt')) {
+          const text = await entry.file.text().catch(() => '');
+          const base = entry.file.name.replace(/\.(lrc|txt)$/i, '').toLowerCase();
+          if (text.trim()) lrcMap.set(base, text);
+        } else if (
+          entry.file.type.startsWith('audio/') ||
+          /\.(mp3|m4a|wav|flac|ogg|aac|opus|webm)$/i.test(lower)
+        ) {
+          audioEntries.push(entry);
+        }
+      }
+
+      if (audioEntries.length === 0) {
+        showToast('No supported audio files found in selection');
+        return;
+      }
+
+      const baseId = Date.now();
+      const builtEntries = await Promise.all(
+        audioEntries.map(async ({ file, relativePath }, idx) => {
+          const cleanRel = relativePath.replace(/^\/+/, '');
+          const segments = cleanRel.split('/').filter(Boolean);
+          const dirSegments = segments.length > 1 ? segments.slice(0, -1) : [rootLabel];
+          const folderPath = dirSegments.join('/');
+          const folderName = dirSegments[dirSegments.length - 1] || rootLabel;
+
+          const baseName = file.name.replace(/\.[^/.]+$/, '');
+          const parts = baseName.split(' - ');
+          const artist = parts.length > 1 ? parts[0].trim() : 'Local Artist';
+          const title =
+            parts.length > 1 ? parts.slice(1).join(' - ').trim() : baseName;
+          const matchedLrc = lrcMap.get(baseName.toLowerCase()) || null;
+          const mediaUri = URL.createObjectURL(file);
+          const durationMs = await readAudioDurationMs(mediaUri);
+
+          const song: Song = {
+            id: baseId + idx,
+            title,
+            artist,
+            album: folderName,
+            durationMs,
+            mediaUri,
+            artworkUri: 'linear-gradient:135:#1E1E24:#3B3B48',
+            isFavorite: false,
+            playCount: 0,
+            popularityScore: 80,
+            dateAdded: baseId,
+            folderName,
+            folderPath: `local://${folderPath}`,
+            lyrics: matchedLrc,
+          };
+
+          return {
+            song,
+            relativePath: `${folderPath}/${file.name}`,
+            sizeBytes: file.size,
+          };
+        })
+      );
+
+      const firstRootPath =
+        builtEntries[0]?.relativePath.split('/')[0] || rootLabel;
+
+      setExplorerEntries((prev) => {
+        const existingPaths = new Set(prev.map((e) => e.relativePath));
+        const fresh = builtEntries.filter((e) => !existingPaths.has(e.relativePath));
+        return [...prev, ...fresh];
+      });
+
+      setOpenedExplorerRoots((prev) => {
+        if (prev.some((r) => r.path === firstRootPath)) return prev;
+        return [...prev, { name: firstRootPath, path: firstRootPath }];
+      });
+
+      setExplorerPath(firstRootPath);
+      showToast(`Opened ${builtEntries.length} audio tracks from '${firstRootPath}'`);
+    },
+    [readAudioDurationMs, showToast]
+  );
+
+  const handleClearExplorer = useCallback(() => {
+    setExplorerEntries([]);
+    setOpenedExplorerRoots([]);
+    setExplorerPath('');
+    showToast('Cleared Explorer workspace');
+  }, [showToast]);
+
+  // Explorer Items Built Strictly From Real Opened Device Files
+  const directoryItems = useMemo<FileExplorerItem[]>(() => {
+    if (explorerEntries.length === 0) return [];
+
+    const normCurrent = explorerPath.replace(/^\/+|\/+$/g, '');
     const subDirs = new Map<string, { itemCount: number; audioCount: number }>();
     const audioFilesHere: FileExplorerItem[] = [];
 
-    for (const song of uniqueSongs) {
-      const fPath = (
-        song.folderPath || `/storage/emulated/0/Music/${song.folderName || 'Library'}`
-      ).replace(/\/+$/, '');
+    for (const entry of explorerEntries) {
+      const cleanRel = entry.relativePath.replace(/^\/+/, '');
+      const parts = cleanRel.split('/').filter(Boolean);
+      const fileName = parts[parts.length - 1] || entry.song.title;
+      const entryDir = parts.slice(0, -1).join('/');
 
-      if (fPath === normCurrent) {
-        const sizeBytes = Math.round((song.durationMs / 1000) * 24000);
+      if (entryDir === normCurrent) {
         audioFilesHere.push({
           type: 'audio',
-          name: `${song.title}.mp3`,
-          path: `${fPath}/${song.id}.mp3`,
-          sizeBytes,
-          sizeFormatted: formatFileSize(sizeBytes),
-          song,
+          name: fileName,
+          path: cleanRel,
+          sizeBytes: entry.sizeBytes,
+          sizeFormatted: formatFileSize(entry.sizeBytes),
+          song: entry.song,
         });
-      } else if (fPath.startsWith(`${normCurrent}/`)) {
-        const remainder = fPath.slice(normCurrent.length + 1);
+      } else if (!normCurrent || entryDir.startsWith(`${normCurrent}/`)) {
+        const remainder = normCurrent
+          ? entryDir.slice(normCurrent.length + 1)
+          : entryDir;
         const childName = remainder.split('/')[0];
         if (childName) {
           const prev = subDirs.get(childName) || { itemCount: 0, audioCount: 0 };
@@ -918,50 +1067,45 @@ export default function App() {
       ([name, counts]) => ({
         type: 'directory',
         name,
-        path: `${normCurrent}/${name}`,
+        path: normCurrent ? `${normCurrent}/${name}` : name,
         itemCount: counts.itemCount,
         audioCount: counts.audioCount,
       })
     );
 
     return [...dirItems, ...audioFilesHere];
-  }, [allSongs, explorerExtraSongs, explorerPath]);
+  }, [explorerEntries, explorerPath]);
 
   const handleAddDirectoryToLibrary = useCallback(
     (dirPath: string, dirName: string) => {
-      const normDir = dirPath.replace(/\/+$/, '');
-      const matchingExtra = explorerExtraSongs.filter((s) =>
-        (s.folderPath || '').replace(/\/+$/, '').startsWith(normDir)
-      );
+      const normDir = dirPath.replace(/^\/+|\/+$/g, '');
+      const matchingSongs = explorerEntries
+        .filter((e) => {
+          const entryDir = e.relativePath.split('/').slice(0, -1).join('/');
+          return entryDir === normDir || entryDir.startsWith(`${normDir}/`);
+        })
+        .map((e) => e.song);
 
-      if (matchingExtra.length > 0) {
+      if (matchingSongs.length > 0) {
         setAllSongs((prev) => {
           const existingIds = new Set(prev.map((s) => s.id));
-          const toAdd = matchingExtra.filter((s) => !existingIds.has(s.id));
-          return [...prev, ...toAdd];
+          const toAdd = matchingSongs.filter((s) => !existingIds.has(s.id));
+          return [...toAdd, ...prev];
         });
-        setExplorerExtraSongs((prev) =>
-          prev.filter(
-            (s) => !(s.folderPath || '').replace(/\/+$/, '').startsWith(normDir)
-          )
-        );
       }
 
+      const libraryFolderPath = `local://${normDir}`;
       setAddedFolders((prev) => {
-        if (prev.some((f) => f.path === normDir || f.name === dirName)) {
+        if (prev.some((f) => f.path === libraryFolderPath || f.name === dirName)) {
           return prev;
         }
-        const count =
-          matchingExtra.length ||
-          allSongs.filter((s) => s.folderPath === normDir).length ||
-          1;
         return [
           ...prev,
           {
             id: Date.now(),
             name: dirName,
-            path: normDir,
-            songCount: count,
+            path: libraryFolderPath,
+            songCount: matchingSongs.length || 1,
             dateAdded: Date.now(),
             artworkUri: 'linear-gradient:135:#0F172A:#334155',
             isArtworkConfirmed: false,
@@ -974,16 +1118,16 @@ export default function App() {
         ];
       });
 
-      showToast(`Added folder '${dirName}' to library`);
+      showToast(`Added folder '${dirName}' (${matchingSongs.length} tracks) to library`);
     },
-    [allSongs, explorerExtraSongs, showToast]
+    [explorerEntries, showToast]
   );
 
   const handleAddSingleSongToLibrary = useCallback(
     (song: Song) => {
       setAllSongs((prev) => {
         if (prev.some((s) => s.id === song.id)) return prev;
-        return [...prev, song];
+        return [song, ...prev];
       });
       showToast(`Added '${song.title}' to library`);
     },
@@ -1005,7 +1149,6 @@ export default function App() {
 
   // Stable Callbacks for Memoized Screens
   const handleOpenSettings = useCallback(() => setShowSettingsSheet(true), []);
-  const handleOpenUiConcepts = useCallback(() => setShowUiConceptsModal(true), []);
   const handleSelectSongForPlaylist = useCallback(
     (song: Song) => setSelectedSongForPlaylist(song),
     []
@@ -1041,11 +1184,14 @@ export default function App() {
     setExplorerPath((prev) => {
       const parts = prev.split('/').filter(Boolean);
       if (parts.length > 1) {
-        return '/' + parts.slice(0, -1).join('/');
+        return parts.slice(0, -1).join('/');
+      }
+      if (parts.length === 1 && openedExplorerRoots.length > 1) {
+        return '';
       }
       return prev;
     });
-  }, []);
+  }, [openedExplorerRoots.length]);
   const handleSelectQueueIndex = useCallback(
     (index: number) => {
       const target = playbackState.queue[index];
@@ -1097,7 +1243,7 @@ export default function App() {
     playbackState.currentSong !== null && !isMiniPlayerDismissed;
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-[var(--bg-canvas)] text-[var(--text-primary)]">
+    <div className="min-h-dvh pt-[env(safe-area-inset-top)] flex flex-col lg:flex-row bg-[var(--bg-canvas)] text-[var(--text-primary)]">
       {/* Desktop Sidebar Navigation (Visible on lg+ viewports) */}
       <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:shrink-0 border-r border-[var(--border-subtle)] bg-[var(--bg-surface)] px-5 py-6 justify-between">
         <div className="space-y-8">
@@ -1132,17 +1278,8 @@ export default function App() {
             })}
           </nav>
 
-          {/* Sleep Timer & UI Designs Quick Triggers */}
+          {/* Sleep Timer Quick Trigger */}
           <div className="pt-4 border-t border-[var(--border-subtle)] space-y-2">
-            <button
-              type="button"
-              onClick={() => setShowUiConceptsModal(true)}
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-[var(--bg-elevated)] text-[var(--text-primary)] hover:opacity-90 transition-opacity whitespace-nowrap"
-            >
-              <LayoutGrid className="w-4 h-4 shrink-0" />
-              <span>5 UI Design Concepts</span>
-            </button>
-
             <button
               type="button"
               onClick={() => setShowSleepTimerSheet(true)}
@@ -1185,7 +1322,6 @@ export default function App() {
               themeMode={themeMode}
               onSelectTheme={setThemeMode}
               onOpenSettings={handleOpenSettings}
-              onOpenUiConcepts={handleOpenUiConcepts}
               onPlaySong={playSong}
               onPlayQueue={playQueue}
               onToggleFavorite={toggleFavorite}
@@ -1267,7 +1403,9 @@ export default function App() {
           >
             <FoldersScreen
               currentPath={explorerPath}
+              openedRoots={openedExplorerRoots}
               directoryItems={directoryItems}
+              hasOpenedFiles={explorerEntries.length > 0}
               currentSongId={playbackState.currentSong?.id ?? null}
               isPlaying={playbackState.isPlaying}
               onNavigateTo={setExplorerPath}
@@ -1277,7 +1415,8 @@ export default function App() {
               onPlaySong={playSong}
               onAddToPlaylistClick={handleSelectSongForPlaylist}
               onFetchArtwork={fetchSongArtwork}
-              onImportLocalFiles={handleImportLocalFiles}
+              onOpenExplorerFiles={handleOpenExplorerFiles}
+              onClearExplorer={handleClearExplorer}
             />
           </div>
         </main>
@@ -1306,7 +1445,7 @@ export default function App() {
           {/* Mobile Bottom Navigation Bar (< lg) */}
           <nav
             aria-label="Mobile Navigation"
-            className="lg:hidden bg-[var(--bg-surface)]/95 backdrop-blur-md border-t border-[var(--border-subtle)] pointer-events-auto"
+            className="lg:hidden bg-[var(--bg-surface)] pb-[env(safe-area-inset-bottom)] border-t border-[var(--border-subtle)] pointer-events-auto"
           >
             <div className="grid grid-cols-4 h-14 max-w-md mx-auto">
               {NAV_ITEMS.map((item) => {
@@ -1476,15 +1615,6 @@ export default function App() {
           }
           onFetchAllArtwork={() => fetchAllThumbnails(allSongs)}
           onDismiss={() => setShowSettingsSheet(false)}
-        />
-      )}
-
-      {/* 5 UI Design Concepts Gallery Modal */}
-      {showUiConceptsModal && (
-        <UiConceptsGalleryModal
-          currentTheme={themeMode}
-          onSelectTheme={setThemeMode}
-          onDismiss={() => setShowUiConceptsModal(false)}
         />
       )}
 

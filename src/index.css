@@ -21,12 +21,12 @@
 
   [data-theme="AMOLED"] {
     --bg-canvas: #000000;
-    --bg-surface: #0A0A0A;
-    --bg-elevated: #141414;
-    --border-subtle: #242424;
+    --bg-surface: #000000;
+    --bg-elevated: #000000;
+    --border-subtle: #1A1A1A;
     --text-primary: #FFFFFF;
-    --text-secondary: #8E8E93;
-    --text-muted: #636366;
+    --text-secondary: #A1A1AA;
+    --text-muted: #71717A;
     --accent-primary: #FFFFFF;
     --accent-contrast: #000000;
     --equalizer-bar: #FFFFFF;
@@ -45,6 +45,7 @@
     --equalizer-bar: #1C1C1E;
   }
 
+  html,
   body {
     font-family: var(--font-sans);
     background-color: var(--bg-canvas);

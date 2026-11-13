@@ -303,7 +303,7 @@ export const SongsScreen: React.FC<SongsScreenProps> = React.memo(({
         ref={folderInputRef}
         type="file"
         multiple
-        accept="audio/*,.lrc,.txt"
+        {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
         onChange={handleFolderPick}
         className="hidden"
       />

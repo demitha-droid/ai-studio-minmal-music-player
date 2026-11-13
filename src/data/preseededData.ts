@@ -14,7 +14,7 @@ export const PRESEEDED_TRACKS: Song[] = [
     popularityScore: 98,
     dateAdded: Date.now() - 86400000 * 7,
     folderName: 'Featured Music',
-    folderPath: '/storage/emulated/0/Music/Featured Music',
+    folderPath: 'collection://Featured Music',
     synthProfile: {
       rootFreq: 220.0, // A3 minor
       chordRatios: [1, 1.2, 1.5, 1.8],
@@ -54,7 +54,7 @@ export const PRESEEDED_TRACKS: Song[] = [
     popularityScore: 95,
     dateAdded: Date.now() - 86400000 * 6,
     folderName: 'Featured Music',
-    folderPath: '/storage/emulated/0/Music/Featured Music',
+    folderPath: 'collection://Featured Music',
     synthProfile: {
       rootFreq: 261.63, // C4 major 7
       chordRatios: [1, 1.25, 1.5, 1.875],
@@ -91,7 +91,7 @@ export const PRESEEDED_TRACKS: Song[] = [
     popularityScore: 91,
     dateAdded: Date.now() - 86400000 * 5,
     folderName: 'Featured Music',
-    folderPath: '/storage/emulated/0/Music/Featured Music',
+    folderPath: 'collection://Featured Music',
     synthProfile: {
       rootFreq: 196.0, // G3
       chordRatios: [1, 1.2, 1.5, 1.78],
@@ -124,7 +124,7 @@ export const PRESEEDED_TRACKS: Song[] = [
     popularityScore: 88,
     dateAdded: Date.now() - 86400000 * 4,
     folderName: 'Nocturnal Synthwave',
-    folderPath: '/storage/emulated/0/Music/Nocturnal Synthwave',
+    folderPath: 'collection://Nocturnal Synthwave',
     synthProfile: {
       rootFreq: 164.81, // E3
       chordRatios: [1, 1.2, 1.5, 2.0],
@@ -155,7 +155,7 @@ export const PRESEEDED_TRACKS: Song[] = [
     popularityScore: 84,
     dateAdded: Date.now() - 86400000 * 3,
     folderName: 'Lo-Fi Study Tapes',
-    folderPath: '/storage/emulated/0/Music/Lo-Fi Study Tapes',
+    folderPath: 'collection://Lo-Fi Study Tapes',
     synthProfile: {
       rootFreq: 174.61, // F3
       chordRatios: [1, 1.25, 1.5, 1.875],
@@ -185,7 +185,7 @@ export const PRESEEDED_TRACKS: Song[] = [
     popularityScore: 80,
     dateAdded: Date.now() - 86400000 * 2,
     folderName: 'Lo-Fi Study Tapes',
-    folderPath: '/storage/emulated/0/Music/Lo-Fi Study Tapes',
+    folderPath: 'collection://Lo-Fi Study Tapes',
     synthProfile: {
       rootFreq: 293.66, // D4
       chordRatios: [1, 1.25, 1.5, 1.667],
@@ -214,7 +214,7 @@ export const PRESEEDED_TRACKS: Song[] = [
     popularityScore: 77,
     dateAdded: Date.now() - 86400000 * 1,
     folderName: 'Nocturnal Synthwave',
-    folderPath: '/storage/emulated/0/Music/Nocturnal Synthwave',
+    folderPath: 'collection://Nocturnal Synthwave',
     synthProfile: {
       rootFreq: 246.94, // B3
       chordRatios: [1, 1.2, 1.5, 1.78],
@@ -243,7 +243,7 @@ export const PRESEEDED_TRACKS: Song[] = [
     popularityScore: 73,
     dateAdded: Date.now(),
     folderName: 'Lo-Fi Study Tapes',
-    folderPath: '/storage/emulated/0/Music/Lo-Fi Study Tapes',
+    folderPath: 'collection://Lo-Fi Study Tapes',
     synthProfile: {
       rootFreq: 207.65, // G#3
       chordRatios: [1, 1.2, 1.5, 1.8],
@@ -265,7 +265,7 @@ export const PRESEEDED_FOLDERS: AddedFolder[] = [
   {
     id: 1,
     name: 'Featured Music',
-    path: '/storage/emulated/0/Music/Featured Music',
+    path: 'collection://Featured Music',
     songCount: 3,
     dateAdded: Date.now() - 86400000 * 7,
     artworkUri: 'linear-gradient:135:#1A1A24:#4A306D',
@@ -280,7 +280,7 @@ export const PRESEEDED_FOLDERS: AddedFolder[] = [
   {
     id: 2,
     name: 'Lo-Fi Study Tapes',
-    path: '/storage/emulated/0/Music/Lo-Fi Study Tapes',
+    path: 'collection://Lo-Fi Study Tapes',
     songCount: 3,
     dateAdded: Date.now() - 86400000 * 4,
     artworkUri: 'linear-gradient:135:#0F1D1A:#1E4B3E',
@@ -295,7 +295,7 @@ export const PRESEEDED_FOLDERS: AddedFolder[] = [
   {
     id: 3,
     name: 'Nocturnal Synthwave',
-    path: '/storage/emulated/0/Music/Nocturnal Synthwave',
+    path: 'collection://Nocturnal Synthwave',
     songCount: 2,
     dateAdded: Date.now() - 86400000 * 2,
     artworkUri: 'linear-gradient:135:#111B24:#1C5870',
@@ -321,95 +321,4 @@ export const PRESEEDED_PLAYLISTS: Playlist[] = [
     createdAt: Date.now() - 86400000 * 1,
     songIds: [1002, 1004, 1006, 1007],
   },
-];
-
-/**
- * Extra un-imported tracks living in the simulated Device File Explorer
- * so users can browse directories and click "Add All" or "Add to Library"
- */
-export const EXPLORER_EXTRA_TRACKS: Song[] = [
-  {
-    id: 1009,
-    title: 'Subzero Horizon',
-    artist: 'Glacier Analogue',
-    album: 'Polar Drift',
-    durationMs: 204000,
-    mediaUri: 'synth://subzero-horizon',
-    artworkUri: 'linear-gradient:45:#0F172A:#334155',
-    isFavorite: false,
-    playCount: 4,
-    popularityScore: 79,
-    dateAdded: Date.now(),
-    folderName: 'Ambient Vault',
-    folderPath: '/storage/emulated/0/Downloads/Ambient Vault',
-    synthProfile: {
-      rootFreq: 146.83, // D3
-      chordRatios: [1, 1.2, 1.5, 1.8],
-      tempoBpm: 70,
-      waveform: 'sine',
-    },
-    lyrics: `[ti:Subzero Horizon]
-[ar:Glacier Analogue]
-[00:00.00] ⋯ Glacial Pad Intro ⋯
-[00:05.00] Crystalline silence across the frozen bay
-[00:13.00] Northern lights dancing in silver and gray`,
-  },
-  {
-    id: 1010,
-    title: 'Analogue Espresso',
-    artist: 'Kissa Trio',
-    album: 'Tokyo Morning',
-    durationMs: 162000,
-    mediaUri: 'synth://analogue-espresso',
-    artworkUri: 'linear-gradient:45:#271C19:#55423D',
-    isFavorite: false,
-    playCount: 6,
-    popularityScore: 82,
-    dateAdded: Date.now(),
-    folderName: 'Vinyl Rips',
-    folderPath: '/storage/emulated/0/Downloads/Vinyl Rips',
-    synthProfile: {
-      rootFreq: 246.94,
-      chordRatios: [1, 1.25, 1.5, 1.875],
-      tempoBpm: 90,
-      waveform: 'triangle',
-    },
-    lyrics: `[ti:Analogue Espresso]
-[ar:Kissa Trio]
-[00:00.00] ⋯ Warm Jazz Vinyl Intro ⋯
-[00:04.50] Needle in the groove as the morning begins
-[00:11.00] Warm espresso steam andupright bass spins`,
-  },
-  {
-    id: 1011,
-    title: 'Monochrome Rain',
-    artist: 'Kissa Trio',
-    album: 'Tokyo Morning',
-    durationMs: 190000,
-    mediaUri: 'synth://monochrome-rain',
-    artworkUri: 'linear-gradient:45:#18181B:#3F3F46',
-    isFavorite: false,
-    playCount: 2,
-    popularityScore: 75,
-    dateAdded: Date.now(),
-    folderName: 'Vinyl Rips',
-    folderPath: '/storage/emulated/0/Downloads/Vinyl Rips',
-    synthProfile: {
-      rootFreq: 220.0,
-      chordRatios: [1, 1.2, 1.5, 1.75],
-      tempoBpm: 82,
-      waveform: 'sine',
-    },
-    lyrics: `[ti:Monochrome Rain]
-[ar:Kissa Trio]
-[00:00.00] ⋯ Soft Brushes & Piano Intro ⋯
-[00:06.00] Umbrellas drifting past the station door
-[00:14.00] Reflections pooling on the concrete floor`,
-  },
-];
-
-export const COMMON_STORAGE_ROOTS = [
-  { name: 'Music', path: '/storage/emulated/0/Music' },
-  { name: 'Downloads', path: '/storage/emulated/0/Downloads' },
-  { name: 'Storage Root', path: '/storage/emulated/0' },
 ];

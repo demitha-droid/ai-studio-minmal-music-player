@@ -5,7 +5,6 @@ import {
   TrendingUp,
   Flame,
   Settings,
-  LayoutGrid,
 } from 'lucide-react';
 import { Song, ThemeMode } from '../types/music';
 import {
@@ -23,7 +22,6 @@ interface DiscoverScreenProps {
   themeMode: ThemeMode;
   onSelectTheme: (mode: ThemeMode) => void;
   onOpenSettings: () => void;
-  onOpenUiConcepts: () => void;
   onPlaySong: (song: Song, queue: Song[]) => void;
   onPlayQueue: (queue: Song[], startIndex?: number) => void;
   onToggleFavorite: (song: Song) => void;
@@ -40,7 +38,6 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = React.memo(({
   themeMode,
   onSelectTheme,
   onOpenSettings,
-  onOpenUiConcepts,
   onPlaySong,
   onPlayQueue,
   onToggleFavorite,
@@ -78,15 +75,6 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = React.memo(({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onOpenUiConcepts}
-            className="px-3 py-1.5 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-xs font-bold text-[var(--text-primary)] hover:opacity-90 transition-opacity inline-flex items-center gap-1.5 whitespace-nowrap"
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span>5 UI Designs</span>
-          </button>
-
           <ThemeSwitcherButton
             currentTheme={themeMode}
             onThemeSelect={onSelectTheme}

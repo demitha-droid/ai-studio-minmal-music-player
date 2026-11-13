@@ -118,9 +118,9 @@ export const NowPlayingSheet: React.FC<NowPlayingSheetProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label="Now Playing"
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 backdrop-blur-md p-0 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-[var(--bg-canvas)] sm:bg-black/75 sm:backdrop-blur-md p-0 sm:p-6 overflow-y-auto"
     >
-      <div className="w-full h-full sm:h-auto sm:max-w-lg sm:rounded-3xl bg-[var(--bg-canvas)] sm:border border-[var(--border-subtle)] px-6 py-5 flex flex-col justify-between shadow-2xl">
+      <div className="w-full h-full sm:h-auto sm:max-w-lg sm:rounded-3xl bg-[var(--bg-canvas)] sm:border border-[var(--border-subtle)] px-6 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:py-5 flex flex-col justify-between shadow-2xl">
         {/* Top Bar */}
         <div className="flex items-center justify-between">
           <button
